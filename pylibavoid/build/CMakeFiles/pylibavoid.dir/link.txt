@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -flto=auto -shared  -o pylibavoid.cpython-314-x86_64-linux-gnu.so CMakeFiles/pylibavoid.dir/bindings.cpp.o  libavoid_static.a 
