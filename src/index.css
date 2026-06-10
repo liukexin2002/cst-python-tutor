@@ -1,0 +1,257 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 引入JetBrains Mono字体 */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 自定义颜色变量 */
+  --color-bg-primary: #0a0a18;
+  --color-bg-secondary: #0f0f23;
+  --color-bg-tertiary: #1a1a3e;
+  --color-border: #1a1a3e;
+  --color-accent-cyan: #00d9ff;
+  --color-accent-red: #e94560;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #94a3b8;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ========== JointJS 样式覆盖 ========== */
+
+/* 纸张容器样式 */
+.joint-paper {
+  background: transparent !important;
+}
+
+/* 网格样式 */
+.joint-paper-grid {
+  stroke: rgba(42, 42, 74, 0.4) !important;
+  stroke-width: 0.5px !important;
+}
+
+/* 元素基础样式 */
+.joint-element {
+  cursor: move !important;
+  transition: filter 0.2s ease;
+}
+
+.joint-element:hover {
+  filter: brightness(1.2);
+}
+
+/* 选中的元素高亮 */
+.joint-element .highlighted {
+  stroke: var(--color-accent-red) !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 8px rgba(233, 69, 96, 0.4));
+}
+
+/* 连线样式 */
+.joint-link .connection-wrap,
+.joint-link .connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.joint-link:hover .connection {
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.5));
+}
+
+/* 端口样式 */
+.port-input,
+.port-output,
+.port-top,
+.port-bottom {
+  transition: all 0.15s ease;
+  cursor: crosshair !important;
+}
+
+.port-input:hover,
+.port-output:hover,
+.port-top:hover,
+.port-bottom:hover {
+  r: 7 !important;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* 端口高亮状态 */
+.port-highlighted {
+  animation: portPulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes portPulse {
+  from {
+    filter: drop-shadow(0 0 4px currentColor);
+    transform: scale(1);
+  }
+  to {
+    filter: drop-shadow(0 0 10px currentColor) brightness(1.3);
+    transform: scale(1.2);
+  }
+}
+
+/* 连接点吸附时的视觉反馈 */
+.magnet-available {
+  cursor: pointer !important;
+  animation: magnetGlow 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes magnetGlow {
+  from { box-shadow: 0 0 4px currentColor; }
+  to { box-shadow: 0 0 12px currentColor, 0 0 20px currentColor; }
+}
+
+/* 拖拽中的元素样式 */
+.joint-element.dragging {
+  opacity: 0.8;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4));
+  z-index: 1000 !important;
+}
+
+/* 工具提示样式 */
+.joint-tooltip {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  color: var(--color-text-primary) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ========== 自定义滚动条 ========== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-cyan);
+}
+
+/* ========== 动画效果 ========== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-fade-out {
+  animation: fadeOut 0.2s ease-out forwards;
+}
+
+/* ========== 工具类 ========== */
+
+.text-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 禁止文本选择（拖拽时）*/
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* 光标样式 */
+.cursor-grab {
+  cursor: grab;
+}
+
+.cursor-grabbing {
+  cursor: grabbing;
+}
+
+/* ========== 响应式适配 ========== */
+
+@media (max-width: 1200px) {
+  /* 平板：隐藏Inspector */
+  .inspector-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 移动端：隐藏Stencil */
+  .stencil-panel {
+    position: fixed;
+    left: -260px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  .stencil-panel.open {
+    left: 0;
+  }
+}
