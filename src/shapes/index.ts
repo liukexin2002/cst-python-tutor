@@ -50,13 +50,16 @@ export function registerCircuitShapes() {
 }
 
 // 自定义连线样式 - 电路专用Link（使用extend API）
+// 注意：router和connector由Paper的defaultRouter/defaultConnector统一管理
 export const CircuitLink = (joint.shapes.standard.Link as any).extend({
   defaults: {
     type: 'circuit.Link',
+    // 连线视觉样式
     attrs: {
       line: {
         stroke: '#00d9ff',
-        strokeWidth: 2,
+        strokeWidth: 2.5,
+        strokeLinejoin: 'round',
         targetMarker: {
           type: 'path',
           d: 'M 10 -5 L 0 0 L 10 5 z',
@@ -66,8 +69,9 @@ export const CircuitLink = (joint.shapes.standard.Link as any).extend({
         },
       },
     },
-    router: { name: 'manhattan' },
-    connector: { name: 'rounded' },
+    // 不在这里定义router/connector，由Paper配置统一控制
+    // z-index确保连线在元素下方但可见
+    z: -1,
   },
 });
 

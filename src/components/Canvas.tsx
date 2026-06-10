@@ -206,12 +206,85 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       portView.unhighlight();
     });
 
-    // ---------- 连线创建成功 ----------
-    paper.on('link:connect', (_linkView: any, _evt: any, newCellView: any, _magnet: any, arrowhead: string) => {
-      console.log('[Link] Connected!', {
-        targetId: newCellView?.model?.id,
-        arrowhead,
+    // ---------- 连线创建成功 - 深度诊断 ----------
+    paper.on('link:connect', (linkView: any, _evt: any, newCellView: any, _magnet: any, arrowhead: string) => {
+      const link = linkView.model;
+      console.log('========== [LINK CONNECTED] ==========');
+      console.log('[Link] Link ID:', link.id);
+      console.log('[Link] Link type:', link.get('type'));
+      console.log('[Link] Source:', JSON.stringify(link.get('source')));
+      console.log('[Link] Target:', JSON.stringify(link.get('target')));
+      console.log('[Link] Vertices:', JSON.stringify(link.get('vertices')));
+      console.log('[Link] Router:', JSON.stringify(link.get('router')));
+      console.log('[Link] Connector:', JSON.stringify(link.get('connector')));
+      console.log('[Link] Attrs:', JSON.stringify(link.get('attrs')));
+      console.log('[Link] Markup:', JSON.stringify(link.markup));
+      console.log('[Link] Target cell view:', newCellView?.model?.id);
+      console.log('[Link] Arrowhead:', arrowhead);
+
+      // 检查link是否在graph中
+      const allLinks = graph.getLinks();
+      console.log('[Link] Total links in graph:', allLinks.length);
+      console.log('[Link] All link IDs:', allLinks.map((l: any) => l.id));
+
+      // 检查link的DOM是否存在
+      if (linkView.el) {
+        console.log('[Link] DOM element exists:', linkView.el.outerHTML.substring(0, 200));
+        const connectionWrap = linkView.el.querySelector('.connection-wrap');
+        const connection = linkView.el.querySelector('.connection');
+        console.log('[Link] .connection-wrap exists:', !!connectionWrap);
+        console.log('[Link] .connection exists:', !!connection);
+        if (connection) {
+          console.log('[Link] .connection d attribute:', (connection as SVGPathElement).getAttribute('d'));
+          console.log('[Link] .connection stroke:', (connection as SVGPathElement).getAttribute('stroke'));
+          console.log('[Link] .connection stroke-width:', (connection as SVGPathElement).getAttribute('stroke-width'));
+        }
+      } else {
+        console.error('[Link] ❌ NO DOM ELEMENT! linkView.el is null/undefined!');
+      }
+
+      // ========== 安全网：强制确保连线渲染 ==========
+      // 延迟一帧后检查并修复不可见的连线
+      requestAnimationFrame(() => {
+        try {
+          // 确保link在graph中
+          if (!graph.getCell(link.id)) {
+            console.warn('[Link] Safety: Link not in graph, adding...');
+            graph.addCell(link);
+          }
+
+          // 强制触发重新计算路由
+          const source = link.get('source');
+          const target = link.get('target');
+          console.log('[Link] Safety - Re-triggering route calc, source:', source, 'target:', target);
+
+          // 触发属性更新以强制重绘
+          link.set('source', { ...source });
+          link.set('target', { ...target });
+
+          // 再次检查DOM
+          setTimeout(() => {
+            const updatedView = paper.findViewByModel(link) as any;
+            if (updatedView?.el) {
+              const conn = updatedView.el.querySelector('.connection');
+              if (conn) {
+                const d = (conn as SVGPathElement).getAttribute('d');
+                console.log('[Link] Safety - After fix, path d:', d);
+                if (!d || d === '' || d === 'M 0 0') {
+                  console.error('[Link] Safety - Path still empty! Trying orthogonal fallback...');
+                  // 兜底：切换到orthogonal路由器
+                  link.set('router', { name: 'orthogonal' });
+                }
+              } else {
+                console.error('[Link] Safety - Still no .connection element!');
+              }
+            }
+          }, 100);
+        } catch (err) {
+          console.error('[Link] Safety net error:', err);
+        }
       });
+
       isLinkingRef.current = false;
 
       useEditorStore.getState().pushHistory('connect', {
@@ -225,9 +298,21 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       console.log('[Link] Disconnected');
     });
 
-    // ---------- 开始拖拽连线（标记状态）----------
+    // ---------- 连线添加到Graph时（更早的钩子）----------
+    paper.on('link:add', (link: any) => {
+      console.log('[Link] ADD event - link added to graph:', link.id);
+      console.log('[Link] Source:', JSON.stringify(link.get('source')));
+      console.log('[Link] Target:', JSON.stringify(link.get('target')));
+    });
+
+    // ---------- 开始拖拽新连线 ----------
     paper.on('link:mouseenter', () => {
-      console.log('[Link] Mouse enter link');
+      console.log('[Link] Mouse enter existing link');
+    });
+
+    // ---------- 正在拖拽连线时的实时反馈 ----------
+    paper.on('link:snap:connect', (_linkView: any, _evt: any, _snapView: any) => {
+      console.log('[Link] SNAP - magnet snapped to target');
     });
 
     // ---------- 画布平移（仅在非连线模式下）----------
