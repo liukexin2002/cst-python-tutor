@@ -91,11 +91,7 @@ html, body, #root {
   fill: none;
 }
 
-/* 箭头标记 */
-.joint-link path[joint-selector="marker-target"] {
-  fill: #00d9ff !important;
-  stroke: #00d9ff !important;
-}
+/* 注意：standard.Link 没有 marker-target 选择器，箭头样式通过 attrs.line.targetMarker 设置 */
 
 /* 端口样式 */
 .port-input,

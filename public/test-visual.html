@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JointJS Link 可视化渲染测试</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0a0a18;
+    color: #e0e0e0;
+  }
+  .header {
+    padding: 16px 24px;
+    background: #1a1a3e;
+    border-bottom: 1px solid #333;
+  }
+  .header h1 {
+    font-size: 20px;
+    color: #00d9ff;
+    margin-bottom: 8px;
+  }
+  .header p {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.5;
+  }
+  #paper-container {
+    position: absolute;
+    top: 80px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0a0a18;
+  }
+  .info-panel {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(20, 20, 50, 0.95);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    font-size: 12px;
+    max-width: 320px;
+    z-index: 10;
+  }
+  .info-panel h3 {
+    color: #00d9ff;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .pass { color: #4ade80; font-weight: bold; }
+  .fail { color: #f87171; font-weight: bold; }
+  #log {
+    position: absolute;
+    top: 80px;
+    right: 16px;
+    max-height: 300px;
+    width: 320px;
+    overflow-y: auto;
+    background: rgba(20, 20, 50, 0.95);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    z-index: 10;
+  }
+  #log h4 {
+    color: #00d9ff;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+  }
+  .log-line {
+    padding: 2px 4px;
+    margin-bottom: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>JointJS Link 可视化渲染测试 - 修复后验证</h1>
+  <p>测试目标：<strong>浅蓝色连线 #00d9ff + 箭头标记</strong> 是否正确显示在两个矩形元件之间</p>
+</div>
+
+<div id="paper-container"></div>
+
+<div class="info-panel">
+  <h3>预期结果</h3>
+  <ul style="margin-left: 16px; line-height: 1.8;">
+    <li><span class="pass">✅</span> 可见的浅蓝色 (<code>#00d9ff</code>) 连接线</li>
+    <li><span class="pass">✅</span> 目标端可见三角形箭头</li>
+    <li><span class="pass">✅</span> 两个矩形各有一个可点击的蓝色端口圆点</li>
+  </ul>
+  <p style="margin-top: 8px;">如果看不到连线 → 渲染修复失败；能看到连线箭头 → 修复成功。</p>
+</div>
+
+<div id="log"><h4>Console Log</h4></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jointjs@3.7.7/dist/joint.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jointjs@3.7.7/dist/joint.min.css">
+
+<script>
+// === 导入实际项目中的 circuitLinkAttrs ===
+const circuitLinkAttrs = {
+  line: {
+    connection: true,
+    stroke: '#00d9ff',
+    strokeWidth: 2.5,
+    strokeLinejoin: 'round',
+    fill: 'none',
+    targetMarker: {
+      'type': 'path',
+      'd': 'M 10 -5 L 0 0 L 10 5 z',
+      'fill': '#00d9ff',
+      'stroke': '#00d9ff',
+      'stroke-width': 1,
+    },
+  },
+  wrapper: {
+    connection: true,
+    'stroke-width': 20,
+    stroke: 'transparent',
+    fill: 'none',
+    'stroke-linecap': 'round',
+  },
+};
+
+function log(text, isError) {
+  const logDiv = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.style.color = isError ? '#f87171' : '#a0a0a0';
+  line.textContent = text;
+  logDiv.appendChild(line);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+// === 初始化 ===
+log('=== Initializing JointJS ===');
+log(`JointJS version: ${joint.version}`);
+
+const container = document.getElementById('paper-container');
+const graph = new joint.dia.Graph({}, { cellNamespace: joint.shapes });
+const paper = new joint.dia.Paper({
+  el: container,
+  model: graph,
+  width: container.clientWidth,
+  height: container.clientHeight,
+  gridSize: 10,
+  drawGrid: { name: 'double', args: { color: '#1a1a2e', thickness: 1 } },
+  background: { color: '#0a0a18' },
+  async: true,
+});
+
+// 适配窗口大小
+window.onresize = () => {
+  paper.setDimensions(container.clientWidth, container.clientHeight);
+};
+
+// 标准 Link markup 检查
+const testLink = new joint.shapes.standard.Link();
+log(`Default standard.Link markup selectors: ${JSON.stringify(testLink.markup.map(m => m.selector))}`);
+log(`Default attrs (prototype): ${JSON.stringify(joint.shapes.standard.Link.prototype.defaults.attrs, null, 2)}`);
+
+// === 创建两个带端口的矩形元件 ===
+const rect1 = new joint.shapes.standard.Rectangle({
+  id: 'r1',
+  position: { x: 100, y: 150 },
+  size: { width: 120, height: 70 },
+  attrs: {
+    body: { fill: '#1a1a3e', stroke: '#ff9500', strokeWidth: 2.5, rx: 6, ry: 6 },
+    label: { text: '元件 A', fill: '#ff9500', fontSize: 16, fontWeight: 'bold' },
+  },
+  ports: {
+    groups: {
+      out: {
+        position: { name: 'right', args: { dr: 10 } },
+        attrs: {
+          portBody: { magnet: true, r: 8, fill: '#00d9ff', stroke: '#ffffff', strokeWidth: 2 },
+        },
+        markup: [{ tagName: 'circle', selector: 'portBody' }],
+      },
+    },
+    items: [{ id: 'out', group: 'out' }],
+  },
+  markup: [
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },
+  ],
+});
+
+const rect2 = new joint.shapes.standard.Rectangle({
+  id: 'r2',
+  position: { x: 380, y: 150 },
+  size: { width: 120, height: 70 },
+  attrs: {
+    body: { fill: '#1a1a3e', stroke: '#00d9ff', strokeWidth: 2.5, rx: 6, ry: 6 },
+    label: { text: '元件 B', fill: '#00d9ff', fontSize: 16, fontWeight: 'bold' },
+  },
+  ports: {
+    groups: {
+      in: {
+        position: { name: 'left', args: { dr: 10 } },
+        attrs: {
+          portBody: { magnet: true, r: 8, fill: '#00d9ff', stroke: '#ffffff', strokeWidth: 2 },
+        },
+        markup: [{ tagName: 'circle', selector: 'portBody' }],
+      },
+    },
+    items: [{ id: 'in', group: 'in' }],
+  },
+  markup: [
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },
+  ],
+});
+
+graph.addCells([rect1, rect2]);
+log(`✅ Created 2 elements with ports`);
+
+// === 创建测试链接 ===
+// 方式1：使用 link.attr() 深层合并（和项目中实际使用方式一致）
+const link = new joint.shapes.standard.Link({
+  source: { id: 'r1', port: 'out' },
+  target: { id: 'r2', port: 'in' },
+});
+
+// 核心修复：使用 link.attr() 深层合并
+link.attr(circuitLinkAttrs);
+graph.addCell(link);
+
+log(`✅ Link created with link.attr(circuitLinkAttrs)`);
+log(`Link attrs: ${JSON.stringify(link.get('attrs'), null, 2)}`);
+
+// === 渲染完成后检查 DOM ===
+requestAnimationFrame(() => {
+  log('');
+  log('=== Post-render DOM inspection ===');
+  const view = paper.findViewByModel(link);
+  if (!view) {
+    log('❌ No view found for link', true);
+    return;
+  }
+  log(`Link view found: ${view.el.tagName}`);
+
+  const lineSel = view.el.querySelector('[joint-selector="line"]');
+  const wrapperSel = view.el.querySelector('[joint-selector="wrapper"]');
+
+  log(`[joint-selector="line"]: ${!!lineSel ? '✅ found' : '❌ NOT FOUND'}`);
+  log(`[joint-selector="wrapper"]: ${!!wrapperSel ? '✅ found' : '❌ NOT FOUND'}`);
+
+  if (lineSel) {
+    const stroke = lineSel.getAttribute('stroke');
+    const strokeWidth = lineSel.getAttribute('stroke-width');
+    const d = lineSel.getAttribute('d');
+    log(`line.stroke = "${stroke}" (expected "#00d9ff")`);
+    log(`line.strokeWidth = "${strokeWidth}"`);
+    log(`line.d length = ${d?.length}`);
+
+    if (stroke === '#00d9ff') {
+      log('✅ line.stroke CORRECT', false);
+    } else {
+      log(`❌ line.stroke INCORRECT: expected "#00d9ff", got "${stroke}"`, true);
+    }
+  }
+
+  // 检查 SVG 标记
+  const defs = paper.svg.querySelector('defs');
+  if (defs) {
+    const markers = defs.querySelectorAll('marker');
+    log(`Number of markers in defs: ${markers.length}`);
+    markers.forEach((m, i) => {
+      const id = m.id;
+      log(`  [${i}] marker id: ${id}`);
+    });
+  }
+
+  // 遍历所有子元素
+  const allChildren = view.el.querySelectorAll('*');
+  log(`Total children in link view: ${allChildren.length}`);
+  allChildren.forEach((el, i) => {
+    const sel = el.getAttribute('joint-selector') || '(none)';
+    log(`  [${i}] <${el.tagName}> selector="${sel}"`);
+  });
+});
+
+// 暴露到 window 方便调试
+window.__test = { graph, paper, link, circuitLinkAttrs };
+log('');
+log('Debug: objects exposed to window.__test');
+log('=== Test setup complete. Check visual output above. ===');
+</script>
+
+</body>
+</html>

@@ -76,8 +76,8 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       // 使用标准Link（不使用自定义CircuitLink类，避免extend()渲染问题）
       defaultLink: () => {
         const link = new joint.shapes.standard.Link() as any;
-        // 立即应用电路连线样式
-        link.set('attrs', circuitLinkAttrs);
+        // 使用 attr() 深层合并样式（不能用 set('attrs', ...) 会替换掉 connection:true 等关键属性）
+        link.attr(circuitLinkAttrs);
         return link;
       },
       linkPinning: false,
@@ -215,21 +215,28 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       console.log('[Link] Source:', JSON.stringify(link.get('source')));
       console.log('[Link] Target:', JSON.stringify(link.get('target')));
 
-      // ========== 关键修复：强制应用连线样式 ==========
+      // ========== 关键修复：使用 attr() 深层合并样式（保留 connection:true 等属性）==========
       try {
-        // 方法1：直接设置attrs（最可靠的方式）
-        link.set('attrs', {
-          '.line': {
+        link.attr({
+          line: {
             stroke: '#00d9ff',
             strokeWidth: 2.5,
             strokeLinejoin: 'round',
             fill: 'none',
+            targetMarker: {
+              'type': 'path',
+              'd': 'M 10 -5 L 0 0 L 10 5 z',
+              'fill': '#00d9ff',
+              'stroke': '#00d9ff',
+              'stroke-width': 1,
+            },
           },
-          '.marker-target': {
-            fill: '#00d9ff',
-            stroke: '#00d9ff',
-            d: 'M 10 -5 L 0 0 L 10 5 z',
-            strokeWidth: 1,
+          wrapper: {
+            connection: true,
+            'stroke-width': 20,
+            stroke: 'transparent',
+            fill: 'none',
+            'stroke-linecap': 'round',
           },
         });
 
@@ -284,9 +291,9 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       console.log('[Link] Source:', JSON.stringify(link.get('source')));
       console.log('[Link] Target:', JSON.stringify(link.get('target')));
 
-      // 安全网：确保连线样式被正确应用
+      // 安全网：确保连线样式被正确应用（使用 attr() 深层合并）
       try {
-        (link as any).set('attrs', circuitLinkAttrs);
+        (link as any).attr(circuitLinkAttrs);
         console.log('[Link] Style applied in add event');
       } catch (e) {
         console.warn('[Link] Style apply failed in add:', e);
