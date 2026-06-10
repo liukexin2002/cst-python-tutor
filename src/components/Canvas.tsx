@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as joint from 'jointjs';
 import { registerCircuitShapes, CircuitLink } from '../shapes/index';
-import { getPaperConfig } from '../config/paperConfig';
 import { shapeConstructors } from '../config/stencilConfig';
 import { useEditorStore } from '../stores/useEditorStore';
 import { snapToGrid } from '../utils/helpers';
@@ -14,10 +13,15 @@ export interface CanvasHandle {
   importFromJSON: (json: string) => void;
 }
 
+const GRID_SIZE = 10;
+
 const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<joint.dia.Graph | null>(null);
   const paperRef = useRef<joint.dia.Paper | null>(null);
+
+  // 是否正在拖拽连线（用于区分平移和连线）
+  const isLinkingRef = useRef(false);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -59,38 +63,84 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
     const graph = new joint.dia.Graph();
     graphRef.current = graph;
 
-    // 获取Paper配置
-    const config = getPaperConfig();
-
-    // 创建Paper视图
+    // 创建Paper视图 - 核心配置
     const paper = new joint.dia.Paper({
       el: containerRef.current,
       model: graph,
       width: '100%',
       height: '100%',
-      gridSize: config.gridSize,
+      gridSize: GRID_SIZE,
       drawGrid: true,
-      async: config.async,
-      sorting: config.sorting,
 
-      // 连线配置
+      // ========== 连线配置 ==========
       defaultLink: () => new (CircuitLink as any)(),
-      linkPinning: config.linkPinning,
-      defaultConnectionPoint: config.defaultConnectionPoint,
+      linkPinning: false,              // 禁止连线到空白区域
 
-      // 吸附配置
-      snapLinks: config.snapLinks,
+      // ========== 连接点配置 ==========
+      defaultConnectionPoint: { name: 'boundary' },
 
-      // 路由配置 - Manhattan避障路由
-      defaultRouter: config.defaultRouter,
-      defaultConnector: config.defaultConnector,
+      // ========== 端口吸附配置 ==========
+      snapLinks: {
+        radius: 40,                   // 吸附搜索半径
+      },
 
-      // 交互配置
-      interactive: config.interactive,
+      // ========== 路由配置 - Manhattan棋盘避障路由 ==========
+      defaultRouter: {
+        name: 'manhattan',
+        args: {
+          step: GRID_SIZE,            // 步长对齐网格（关键！）
+          maxAllowedDirectionChange: 90,
+          padding: 20,
+          perpendicular: true,
+          excludeEnds: ['source', 'target'],
+          startDirections: ['top', 'bottom', 'left', 'right'],
+          endDirections: ['top', 'bottom', 'left', 'right'],
+        },
+      },
 
-      // 验证函数
-      validateConnection: config.validateConnection,
-      validateMagnet: config.validateMagnet,
+      // ========== 连接器配置 ==========
+      defaultConnector: {
+        name: 'rounded',
+        args: { radius: 5 },
+      },
+
+      // ========== 交互配置 ==========
+      interactive: {
+        vertexAdd: false,
+        vertexMove: false,
+        arrowheadMove: false,
+        labelMove: false,
+        linkMove: false,
+        elementMove: true,
+        useLinkTools: false,
+      },
+
+      // ========== 连接验证 ==========
+      validateConnection: (
+        sourceView: any,
+        _sourceMagnet: any,
+        targetView: any,
+        _targetMagnet: any,
+        end: string
+      ) => {
+        // 不允许自连
+        if (sourceView === targetView) return false;
+
+        // 必须连接到端口
+        if (!_sourceMagnet || !_targetMagnet) return false;
+
+        return true;
+      },
+
+      // 简化验证：允许所有magnet开始连线
+      validateMagnet: (_cellView: any, magnet: SVGElement) => {
+        // 只要有magnet属性就允许
+        return !!magnet && magnet.getAttribute('magnet') !== null;
+      },
+
+      // 性能优化
+      async: true,
+      sorting: joint.dia.Paper.sorting.APPROX,
 
       // 背景颜色
       background: { color: '#0a0a18' },
@@ -98,93 +148,110 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
 
     paperRef.current = paper;
 
-    // ========== 事件绑定 ==========
+    // ============================================================
+    //                    事件绑定系统
+    // ============================================================
 
-    // 元素选中事件
+    // ---------- 元素选中 ----------
     paper.on('element:pointerclick', (elementView: any) => {
-      const element = elementView.model;
-      useEditorStore.getState().selectCell(element.id, 'element');
-
-      // 高亮选中的元素
-      paper.removeTools();
+      useEditorStore.getState().selectCell(elementView.model.id, 'element');
       elementView.highlight();
     });
 
-    // 空白区域点击 - 取消选择
+    // ---------- 空白点击取消选择 ----------
     paper.on('blank:pointerclick', () => {
       useEditorStore.getState().selectCell(null);
-
-      // 移除所有高亮
-      const cells = graph.getElements();
-      cells.forEach((cell: any) => {
+      graph.getElements().forEach((cell: any) => {
         const view = paper.findViewByModel(cell);
         if (view) (view as any).unhighlight();
       });
     });
 
-    // 连线点击事件
+    // ---------- 连线选中 ----------
     paper.on('link:pointerclick', (linkView: any) => {
-      const link = linkView.model;
-      useEditorStore.getState().selectCell(link.id, 'link');
+      useEditorStore.getState().selectCell(linkView.model.id, 'link');
     });
 
-    // 元素移动事件 - 应用网格吸附
-    paper.on('element:pointermove', (elementView: any, _evt: any) => {
-      const element = elementView.model;
-      const position = element.position();
+    // ---------- 元素移动 + 网格吸附 ----------
+    paper.on('element:pointermove', (elementView: any) => {
+      // 如果正在拖拽连线，跳过元素吸附（避免干扰）
+      if (isLinkingRef.current) return;
 
-      // 吸附到网格
-      const snapped = snapToGrid(position.x, position.y, config.gridSize!);
+      const element = elementView.model;
+      const pos = element.position();
+      const snapped = snapToGrid(pos.x, pos.y, GRID_SIZE);
       element.position(snapped.x, snapped.y, { silent: true });
     });
 
-    // 元素放置完成事件
+    // ---------- 元素放置完成 ----------
     paper.on('element:pointerup', (elementView: any) => {
       const element = elementView.model;
-      const position = element.position();
-
-      // 最终吸附
-      const snapped = snapToGrid(position.x, position.y, config.gridSize!);
+      const pos = element.position();
+      const snapped = snapToGrid(pos.x, pos.y, GRID_SIZE);
       element.position(snapped.x, snapped.y);
 
-      // 记录历史
       useEditorStore.getState().pushHistory('move', {
         id: element.id,
         position: snapped,
       });
     });
 
-    // 端口连接验证（实时反馈）
+    // ---------- 端口悬停高亮 ----------
     paper.on('port:mouseenter', (portView: any) => {
       portView.highlight();
+      console.log('[Port] Hover on port');
     });
 
     paper.on('port:mouseleave', (portView: any) => {
       portView.unhighlight();
     });
 
-    // 连接建立事件
-    paper.on('link:connect', (linkView: any, _evt: any, _sourceView: any, sourceMagnet: any, targetMagnet: any) => {
-      console.log('Link connected:', {
-        sourceId: sourceMagnet?.parentElement?.closest('.joint-cell')?.getAttribute('data-id'),
-        targetId: targetMagnet?.parentElement?.closest('.joint-cell')?.getAttribute('data-id'),
+    // ---------- 连线创建成功 ----------
+    paper.on('link:connect', (_linkView: any, _evt: any, newCellView: any, _magnet: any, arrowhead: string) => {
+      console.log('[Link] Connected!', {
+        targetId: newCellView?.model?.id,
+        arrowhead,
+      });
+      isLinkingRef.current = false;
+
+      useEditorStore.getState().pushHistory('connect', {
+        targetId: newCellView?.model?.id,
+        arrowhead,
       });
     });
 
-    // 处理外部拖放（从Stencil拖入）- 使用translate替代startBatch/stopBatch
+    // ---------- 连线断开 ----------
+    paper.on('link:disconnect', (_linkView: any) => {
+      console.log('[Link] Disconnected');
+    });
+
+    // ---------- 开始拖拽连线（标记状态）----------
+    paper.on('link:mouseenter', () => {
+      console.log('[Link] Mouse enter link');
+    });
+
+    // ---------- 画布平移（仅在非连线模式下）----------
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+
     paper.on('blank:pointerdown', (evt: MouseEvent) => {
-      let startX = evt.clientX;
-      let startY = evt.clientY;
+      // 延迟判断：如果短时间内没有link创建，则认为是平移操作
+      isPanning = true;
+      panStartX = evt.clientX;
+      panStartY = evt.clientY;
 
       const onMouseMove = (moveEvt: MouseEvent) => {
-        const dx = moveEvt.clientX - startX;
-        const dy = moveEvt.clientY - startY;
+        if (!isPanning) return;
+        const dx = moveEvt.clientX - panStartX;
+        const dy = moveEvt.clientY - panStartY;
         paper.translate(dx, dy);
-        startX = moveEvt.clientX;
-        startY = moveEvt.clientY;
+        panStartX = moveEvt.clientX;
+        panStartY = moveEvt.clientY;
       };
 
       const onMouseUp = () => {
+        isPanning = false;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
       };
@@ -193,32 +260,27 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       document.addEventListener('mouseup', onMouseUp);
     });
 
-    // ========== 外部拖放处理（从Stencil拖入器件）==========
-    // 注意：必须在捕获阶段监听，因为JointJS Paper会拦截冒泡阶段的drop事件
+    // ============================================================
+    //               外部拖放处理（Stencil → Paper）
+    // ============================================================
 
-    // dragover - 必须阻止默认行为才能触发drop
     containerRef.current.addEventListener(
       'dragover',
       (e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (e.dataTransfer) {
-          e.dataTransfer.dropEffect = 'copy';
-        }
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
       },
       false
     );
 
-    // dragleave - 可选：添加视觉反馈
     containerRef.current.addEventListener('dragleave', (e: DragEvent) => {
-      // 只有当离开容器边界时才处理
       const relatedTarget = e.relatedTarget as Node | null;
       if (relatedTarget && !containerRef.current?.contains(relatedTarget)) {
         containerRef.current!.style.outline = '';
       }
     });
 
-    // dragenter - 添加视觉反馈
     containerRef.current.addEventListener('dragenter', (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -226,159 +288,88 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       containerRef.current!.style.outlineOffset = '-4px';
     });
 
-    // drop - 核心放置逻辑
     containerRef.current.addEventListener(
       'drop',
       (e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
-        // 移除视觉反馈
         containerRef.current!.style.outline = '';
 
-        console.log('[Canvas] Drop event triggered!');
-
-        // 获取拖拽数据 - 尝试多种格式
-        let componentType = e.dataTransfer?.getData('componentType');
-        if (!componentType) {
-          // 兜底：尝试 text/plain 格式
-          componentType = e.dataTransfer?.getData('text/plain') || '';
-        }
-        console.log('[Canvas] Component type:', componentType);
-
-        if (!componentType) {
-          console.warn('[Canvas] No componentType in dataTransfer');
-          return;
-        }
-
-        if (!shapeConstructors[componentType]) {
-          console.warn('[Canvas] Unknown component type:', componentType);
-          return;
-        }
+        // 获取器件类型
+        let componentType = e.dataTransfer?.getData('componentType') || '';
+        if (!componentType) componentType = e.dataTransfer?.getData('text/plain') || '';
+        if (!componentType || !shapeConstructors[componentType]) return;
 
         // 解析属性
         let attrs: Record<string, any> = {};
         const attrsStr = e.dataTransfer?.getData('componentAttrs');
         if (attrsStr) {
-          try {
-            attrs = JSON.parse(attrsStr);
-          } catch (err) {
-            console.warn('[Canvas] Failed to parse attrs:', err);
-          }
+          try { attrs = JSON.parse(attrsStr); } catch {}
         }
 
-        // 计算放置位置 - 使用 SVG CTM 逆矩阵获取准确的模型坐标
+        // 坐标转换（SVG CTM逆矩阵）
         const rect = containerRef.current!.getBoundingClientRect();
-        const clientX = e.clientX || (e as any).pageX || 0;
-        const clientY = e.clientY || (e as any).pageY || 0;
+        const clientX = e.clientX || 0;
+        const clientY = e.clientY || 0;
 
         let point: { x: number; y: number };
-
-        // 使用 SVG getScreenCTM().inverse() 进行精确坐标转换
-        // 这能正确处理缩放、平移、旋转等所有变换
         try {
           const svgEl = paper.svg as SVGSVGElement;
-          if (svgEl && typeof svgEl.getScreenCTM === 'function') {
-            const ctm = svgEl.getScreenCTM();
-            if (ctm) {
-              // 创建 SVG 点并应用逆矩阵
-              const svgPt = (svgEl.ownerSVGElement || svgEl).createSVGPoint();
-              svgPt.x = clientX;
-              svgPt.y = clientY;
-              const localPt = svgPt.matrixTransform(ctm.inverse());
-              point = { x: localPt.x, y: localPt.y };
-            } else {
-              // 无 CTM 时使用简单计算（未缩放状态）
-              point = { x: clientX - rect.left, y: clientY - rect.top };
-            }
+          const ctm = svgEl.getScreenCTM();
+          if (ctm) {
+            const svgPt = (svgEl.ownerSVGElement || svgEl).createSVGPoint();
+            svgPt.x = clientX; svgPt.y = clientY;
+            const localPt = svgPt.matrixTransform(ctm.inverse());
+            point = { x: localPt.x, y: localPt.y };
           } else {
-            // 兜底：使用 JointJS 内置方法
-            point = paper.clientToLocalPoint({
-              x: clientX - rect.left,
-              y: clientY - rect.top,
-            });
+            point = { x: clientX - rect.left, y: clientY - rect.top };
           }
-        } catch (err) {
-          console.warn('[Canvas] Coordinate conversion failed, using fallback:', err);
+        } catch {
           point = { x: clientX - rect.left, y: clientY - rect.top };
         }
 
-        console.log('[Canvas] Drop position:', { clientX, clientY, modelPoint: point });
-
         // 网格吸附
-        const snapped = snapToGrid(point.x, point.y, config.gridSize!);
-        console.log('[Canvas] Snapped position:', snapped);
+        const snapped = snapToGrid(point.x, point.y, GRID_SIZE);
 
-        // 创建新元件实例
-        const ShapeConstructor = shapeConstructors[componentType];
-        console.log('[Canvas] ShapeConstructor:', ShapeConstructor.name || componentType);
+        // 创建元件
+        const Constructor = shapeConstructors[componentType];
+        const newElement = new Constructor({
+          position: { x: snapped.x, y: snapped.y },
+          attrs: attrs,
+        }) as any;
 
-        let newElement: any;
-        try {
-          newElement = new ShapeConstructor({
-            position: { x: snapped.x, y: snapped.y },
-            attrs: attrs,
-          });
-        } catch (err) {
-          console.error('[Canvas] Failed to create element:', err);
-          return;
-        }
-
-        console.log('[Canvas] Created element:', newElement.id, newElement.get('type'));
-        console.log('[Canvas] Element position:', newElement.position());
-        console.log('[Canvas] Element size:', newElement.size());
-        console.log('[Canvas] Element markup:', JSON.stringify(newElement.markup));
-
-        // 添加到图形模型
+        // 添加到图
         graph.addCell(newElement);
 
-        const cellCount = graph.getCells().length;
-        console.log('[Canvas] Element added to graph, total cells:', cellCount);
-
-        // 记录历史
-        useEditorStore.getState().pushHistory('add', {
-          id: newElement.id,
-          type: componentType,
-          position: snapped,
-        });
-
-        // 选中新元素
+        // 选中+高亮
         useEditorStore.getState().selectCell(newElement.id, 'element');
-
-        // 高亮新添加的元素（延迟一帧确保DOM已渲染）
         requestAnimationFrame(() => {
           const view = paper.findViewByModel(newElement);
-          if (view) {
-            (view as any).highlight();
-            console.log('[Canvas] Element highlighted');
-          }
+          if (view) (view as any).highlight();
         });
+
+        console.log(`[Drop] ${componentType} placed at (${snapped.x}, ${snapped.y})`);
       },
       false
     );
 
-    // 鼠标滚轮缩放
-    containerRef.current.addEventListener('wheel', (e) => {
+    // ---------- 鼠标滚轮缩放 ----------
+    containerRef.current.addEventListener('wheel', (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       const currentZoom = useEditorStore.getState().zoom;
       const newZoom = Math.max(0.25, Math.min(4, currentZoom + delta));
       useEditorStore.getState().setZoom(newZoom);
-
-      // 以鼠标位置为中心缩放
-      const rect = containerRef.current!.getBoundingClientRect();
-      const center = paper.clientToLocalPoint({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-
       paper.scale(newZoom, newZoom);
-    });
+    }, { passive: false });
 
-    // 键盘快捷键
+    // ---------- 键盘快捷键 ----------
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Delete键删除选中元素
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.target || (e.target as HTMLElement).tagName !== 'INPUT') {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      // Delete删除
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         const selectedId = useEditorStore.getState().selectedCellId;
         if (selectedId) {
           const cell = graph.getCell(selectedId);
@@ -390,63 +381,34 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
         }
       }
 
-      // Ctrl+Z撤销 / Ctrl+Y重做
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          useEditorStore.getState().undo();
-        }
-        if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
-          e.preventDefault();
-          useEditorStore.getState().redo();
-        }
+      // Ctrl+Z / Ctrl+Y
+      if ((e.ctrlKey || e.metaKey)) {
+        if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); useEditorStore.getState().undo(); }
+        if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); useEditorStore.getState().redo(); }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
 
-    // 清理函数 - 使用$el.remove()替代paper.remove()
+    // 清理
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      if (paperRef.current) {
-        const paperEl = containerRef.current;
-        if (paperEl) paperEl.innerHTML = '';
-        paperRef.current = null;
-      }
-      if (graphRef.current) {
-        graphRef.current = null;
-      }
+      if (containerRef.current) containerRef.current.innerHTML = '';
+      paperRef.current = null;
+      graphRef.current = null;
     };
   }, []);
-
-  // 同步zoom状态到paper
-  useEffect(() => {
-    if (paperRef.current) {
-      const zoom = useEditorStore.getState().zoom;
-      paperRef.current.scale(zoom, zoom);
-    }
-  }, [useEditorStore.getState().zoom]);
 
   return (
     <div
       ref={containerRef}
       className="w-full h-full bg-[#0a0a18] relative overflow-hidden"
       style={{
-        backgroundImage:
-          'radial-gradient(circle at center, rgba(15, 52, 96, 0.1) 0%, transparent 70%)',
+        backgroundImage: 'radial-gradient(circle at center, rgba(15, 52, 96, 0.1) 0%, transparent 70%)',
       }}
-    >
-      {/* 加载提示（初始状态） */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 opacity-0 animate-fade-out">
-        <div className="text-center">
-          <div className="text-4xl mb-4">⚡</div>
-          <p className="text-gray-500 text-sm">从左侧拖拽器件开始绘制电路</p>
-        </div>
-      </div>
-    </div>
+    />
   );
 });
 
 Canvas.displayName = 'Canvas';
-
 export default Canvas;
