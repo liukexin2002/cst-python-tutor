@@ -21,7 +21,6 @@ export const Inductor = (joint.shapes.standard.Rectangle as any).extend({
         fontWeight: 'bold',
         fontFamily: "'JetBrains Mono', monospace",
       },
-      // 电感符号 (线圈)
       symbol: {
         d: 'M12,25 Q22,10 32,25 Q42,40 52,25 Q62,10 72,25 Q82,40 92,25',
         stroke: '#bf5fff',
@@ -43,6 +42,7 @@ export const Inductor = (joint.shapes.standard.Rectangle as any).extend({
     { tagName: 'rect', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

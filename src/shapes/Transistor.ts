@@ -21,7 +21,6 @@ export const Transistor = (joint.shapes.standard.Rectangle as any).extend({
         fontWeight: 'bold',
         fontFamily: "'JetBrains Mono', monospace",
       },
-      // 三极管符号 (NPN)
       symbol: {
         d: 'M35,65 L35,25 L60,15 M35,45 L58,38 M35,45 L58,52 M54,11 L54,19 L63,15 Z',
         stroke: '#ffd93d',
@@ -45,6 +44,7 @@ export const Transistor = (joint.shapes.standard.Rectangle as any).extend({
     { tagName: 'rect', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

@@ -35,6 +35,7 @@ export const Junction = (joint.shapes.standard.Circle as any).extend({
   markup: [
     { tagName: 'circle', selector: 'body' },
     { tagName: 'circle', selector: 'dot' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

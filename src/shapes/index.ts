@@ -49,28 +49,34 @@ export function registerCircuitShapes() {
   };
 }
 
-// 自定义连线样式 - 电路专用Link（使用extend API）
-// 注意：router和connector由Paper的defaultRouter/defaultConnector统一管理
+// 自定义连线样式 - 电路专用Link
+// ⚠️ 不定义markup！使用JointJS默认的Link markup（包含 .connection-wrap/.connection 等）
+// 只通过 defaults.attrs 覆盖样式
 export const CircuitLink = (joint.shapes.standard.Link as any).extend({
   defaults: {
     type: 'circuit.Link',
-    // 连线视觉样式
+    // 仅覆盖连线视觉属性，不触碰markup
     attrs: {
-      line: {
+      '.connection': {
         stroke: '#00d9ff',
         strokeWidth: 2.5,
         strokeLinejoin: 'round',
-        targetMarker: {
-          type: 'path',
-          d: 'M 10 -5 L 0 0 L 10 5 z',
-          fill: '#00d9ff',
-          stroke: '#00d9ff',
-          strokeWidth: 1,
-        },
+      },
+      '.marker-target': {
+        fill: '#00d9ff',
+        stroke: '#00d9ff',
+        d: 'M 10 -5 L 0 0 L 10 5 z',
+        strokeWidth: 1,
+      },
+      '.marker-vertex': {
+        r: 0,   // 隐藏顶点
+      },
+      '.connection-wrap': {
+        'stroke-width': 20,  // 增大交互区域
+        stroke: 'transparent',
       },
     },
-    // 不在这里定义router/connector，由Paper配置统一控制
-    // z-index确保连线在元素下方但可见
+    // router/connector由Paper配置统一管理
     z: -1,
   },
 });

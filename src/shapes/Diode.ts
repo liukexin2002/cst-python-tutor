@@ -21,7 +21,6 @@ export const Diode = (joint.shapes.standard.Rectangle as any).extend({
         fontWeight: 'bold',
         fontFamily: "'JetBrains Mono', monospace",
       },
-      // 二极管符号 (三角+竖线)
       symbol: {
         d: 'M15,30 L42,14 L42,46 Z M44,12 L44,48',
         stroke: '#ff6b6b',
@@ -44,6 +43,7 @@ export const Diode = (joint.shapes.standard.Rectangle as any).extend({
     { tagName: 'rect', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

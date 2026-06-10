@@ -40,28 +40,18 @@ export const Resistor = (joint.shapes.standard.Rectangle as any).extend({
     },
   },
 
+  // ⚠️ 关键：必须包含 <g class="ports"> 才能渲染端口！
   markup: [
-    {
-      tagName: 'rect',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 
-// 工厂函数：创建新的电阻实例
 export function createResistor(x = 100, y = 100) {
   return new Resistor({
     position: { x, y },
-    attrs: {
-      label: { text: `R${Math.floor(Math.random() * 100)}` },
-    },
+    attrs: { label: { text: `R${Math.floor(Math.random() * 100)}` } },
   });
 }

@@ -21,7 +21,6 @@ export const Capacitor = (joint.shapes.standard.Rectangle as any).extend({
         fontWeight: 'bold',
         fontFamily: "'JetBrains Mono', monospace",
       },
-      // 电容符号 (两块平行板)
       symbol: {
         d: 'M20,20 L40,20 M40,12 L40,28 M48,12 L48,28 M48,20 L68,20 M20,40 L40,40 M40,32 L40,48 M48,32 L48,48 M48,40 L68,40',
         stroke: '#00ff88',
@@ -43,6 +42,7 @@ export const Capacitor = (joint.shapes.standard.Rectangle as any).extend({
     { tagName: 'rect', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

@@ -20,7 +20,6 @@ export const Ground = (joint.shapes.standard.Rectangle as any).extend({
         fontFamily: "'JetBrains Mono', monospace",
         refY: '95%',
       },
-      // 接地符号 (三根递减横线)
       symbol: {
         d: 'M30,5 L30,18 M18,18 L42,18 M22,26 L38,26 M26,34 L34,34',
         stroke: '#888888',
@@ -39,6 +38,7 @@ export const Ground = (joint.shapes.standard.Rectangle as any).extend({
     { tagName: 'rect', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

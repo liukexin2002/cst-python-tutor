@@ -19,7 +19,6 @@ export const PowerSupply = (joint.shapes.standard.Ellipse as any).extend({
         fontWeight: 'bold',
         fontFamily: "'JetBrains Mono', monospace",
       },
-      // 电源符号 (圆形+正号)
       symbol: {
         d: 'M27,31 L43,31 M35,23 L35,39',
         stroke: '#00d9ff',
@@ -38,6 +37,7 @@ export const PowerSupply = (joint.shapes.standard.Ellipse as any).extend({
     { tagName: 'ellipse', selector: 'body' },
     { tagName: 'path', selector: 'symbol' },
     { tagName: 'text', selector: 'label' },
+    { tagName: 'g', selector: 'ports' },       // ← 端口渲染容器
   ],
 });
 

@@ -229,15 +229,19 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
 
       // 检查link的DOM是否存在
       if (linkView.el) {
-        console.log('[Link] DOM element exists:', linkView.el.outerHTML.substring(0, 200));
-        const connectionWrap = linkView.el.querySelector('.connection-wrap');
-        const connection = linkView.el.querySelector('.connection');
-        console.log('[Link] .connection-wrap exists:', !!connectionWrap);
-        console.log('[Link] .connection exists:', !!connection);
-        if (connection) {
-          console.log('[Link] .connection d attribute:', (connection as SVGPathElement).getAttribute('d'));
-          console.log('[Link] .connection stroke:', (connection as SVGPathElement).getAttribute('stroke'));
-          console.log('[Link] .connection stroke-width:', (connection as SVGPathElement).getAttribute('stroke-width'));
+        console.log('[Link] DOM element exists:', linkView.el.outerHTML.substring(0, 300));
+        const wrap = linkView.el.querySelector('.connection-wrap');
+        const conn = linkView.el.querySelector('.connection');
+        const marker = linkView.el.querySelector('.marker-target');
+        console.log('[Link] .connection-wrap exists:', !!wrap);
+        console.log('[Link] .connection exists:', !!conn);
+        console.log('[Link] .marker-target exists:', !!marker);
+        if (conn) {
+          console.log('[Link] .connection d attribute:', (conn as SVGPathElement).getAttribute('d'));
+          console.log('[Link] .connection stroke:', (conn as SVGPathElement).getAttribute('stroke'));
+          console.log('[Link] .connection stroke-width:', (conn as SVGPathElement).getAttribute('stroke-width'));
+        } else {
+          console.error('[Link] ❌ NO .connection PATH ELEMENT!');
         }
       } else {
         console.error('[Link] ❌ NO DOM ELEMENT! linkView.el is null/undefined!');
@@ -272,7 +276,6 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
                 console.log('[Link] Safety - After fix, path d:', d);
                 if (!d || d === '' || d === 'M 0 0') {
                   console.error('[Link] Safety - Path still empty! Trying orthogonal fallback...');
-                  // 兜底：切换到orthogonal路由器
                   link.set('router', { name: 'orthogonal' });
                 }
               } else {
