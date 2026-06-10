@@ -90,21 +90,20 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
         radius: 40,
       },
 
-      // ========== 路由配置 - Manhattan棋盘避障路由 ==========
+      // ========== 路由配置 - Manhattan直角避障路由 ==========
       defaultRouter: {
         name: 'manhattan',
         args: {
-          step: GRID_SIZE,            // 步长对齐网格
+          step: 20,                   // 增大步长，平行线不易重合
           maxAllowedDirectionChange: 90,
-          padding: 20,
+          padding: 25,                // 器件周围留更多空间
           perpendicular: true,
         },
       },
 
-      // ========== 连接器配置 ==========
+      // ========== 连接器配置 - 纯直角折线 ==========
       defaultConnector: {
-        name: 'rounded',
-        args: { radius: 5 },
+        name: 'normal',
       },
 
       // ========== 交互配置 ==========
