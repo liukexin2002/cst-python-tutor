@@ -70,16 +70,31 @@ html, body, #root {
   filter: drop-shadow(0 0 8px rgba(233, 69, 96, 0.4));
 }
 
-/* 连线样式 */
-.joint-link .connection-wrap,
-.joint-link .connection {
+/* 连线样式 - 使用joint-selector属性选择器（JointJS 3.7.x） */
+.joint-link path[joint-selector="line"] {
+  stroke: #00d9ff !important;
+  stroke-width: 2.5 !important;
   stroke-linecap: round;
   stroke-linejoin: round;
+  fill: none !important;
 }
 
-.joint-link:hover .connection {
+.joint-link:hover path[joint-selector="line"] {
   stroke-width: 3px !important;
-  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.5));
+  filter: drop-shadow(0 0 6px rgba(0, 217, 255, 0.6));
+}
+
+/* 连线交互区域（透明扩大点击范围）*/
+.joint-link path[joint-selector="wrapper"] {
+  stroke-width: 20;
+  stroke: transparent;
+  fill: none;
+}
+
+/* 箭头标记 */
+.joint-link path[joint-selector="marker-target"] {
+  fill: #00d9ff !important;
+  stroke: #00d9ff !important;
 }
 
 /* 端口样式 */

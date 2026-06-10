@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import * as joint from 'jointjs';
-import { registerCircuitShapes, CircuitLink } from '../shapes/index';
+import { registerCircuitShapes, circuitLinkAttrs } from '../shapes/index';
 import { shapeConstructors } from '../config/stencilConfig';
 import { useEditorStore } from '../stores/useEditorStore';
 import { snapToGrid } from '../utils/helpers';
@@ -73,28 +73,31 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       drawGrid: true,
 
       // ========== 连线配置 ==========
-      defaultLink: () => new (CircuitLink as any)(),
-      linkPinning: false,              // 禁止连线到空白区域
+      // 使用标准Link（不使用自定义CircuitLink类，避免extend()渲染问题）
+      defaultLink: () => {
+        const link = new joint.shapes.standard.Link() as any;
+        // 立即应用电路连线样式
+        link.set('attrs', circuitLinkAttrs);
+        return link;
+      },
+      linkPinning: false,
 
       // ========== 连接点配置 ==========
       defaultConnectionPoint: { name: 'boundary' },
 
       // ========== 端口吸附配置 ==========
       snapLinks: {
-        radius: 40,                   // 吸附搜索半径
+        radius: 40,
       },
 
       // ========== 路由配置 - Manhattan棋盘避障路由 ==========
       defaultRouter: {
         name: 'manhattan',
         args: {
-          step: GRID_SIZE,            // 步长对齐网格（关键！）
+          step: GRID_SIZE,            // 步长对齐网格
           maxAllowedDirectionChange: 90,
           padding: 20,
           perpendicular: true,
-          excludeEnds: ['source', 'target'],
-          startDirections: ['top', 'bottom', 'left', 'right'],
-          endDirections: ['top', 'bottom', 'left', 'right'],
         },
       },
 
@@ -123,18 +126,12 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
         _targetMagnet: any,
         end: string
       ) => {
-        // 不允许自连
         if (sourceView === targetView) return false;
-
-        // 必须连接到端口
         if (!_sourceMagnet || !_targetMagnet) return false;
-
         return true;
       },
 
-      // 简化验证：允许所有magnet开始连线
       validateMagnet: (_cellView: any, magnet: SVGElement) => {
-        // 只要有magnet属性就允许
         return !!magnet && magnet.getAttribute('magnet') !== null;
       },
 
@@ -147,6 +144,10 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
     });
 
     paperRef.current = paper;
+
+    // 🔧 开发调试钩子：暴露JointJS对象到window（仅开发环境）
+    (window as any).__circuitEditor = { graph, paper, joint };
+    console.log('[Debug] JointJS objects exposed: window.__circuitEditor.graph/paper/joint');
 
     // ============================================================
     //                    事件绑定系统
@@ -206,89 +207,65 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       portView.unhighlight();
     });
 
-    // ---------- 连线创建成功 - 深度诊断 ----------
+    // ---------- 连线创建成功 - 深度诊断 + 强制样式应用 ----------
     paper.on('link:connect', (linkView: any, _evt: any, newCellView: any, _magnet: any, arrowhead: string) => {
       const link = linkView.model;
       console.log('========== [LINK CONNECTED] ==========');
       console.log('[Link] Link ID:', link.id);
-      console.log('[Link] Link type:', link.get('type'));
       console.log('[Link] Source:', JSON.stringify(link.get('source')));
       console.log('[Link] Target:', JSON.stringify(link.get('target')));
-      console.log('[Link] Vertices:', JSON.stringify(link.get('vertices')));
-      console.log('[Link] Router:', JSON.stringify(link.get('router')));
-      console.log('[Link] Connector:', JSON.stringify(link.get('connector')));
-      console.log('[Link] Attrs:', JSON.stringify(link.get('attrs')));
-      console.log('[Link] Markup:', JSON.stringify(link.markup));
-      console.log('[Link] Target cell view:', newCellView?.model?.id);
-      console.log('[Link] Arrowhead:', arrowhead);
 
-      // 检查link是否在graph中
-      const allLinks = graph.getLinks();
-      console.log('[Link] Total links in graph:', allLinks.length);
-      console.log('[Link] All link IDs:', allLinks.map((l: any) => l.id));
+      // ========== 关键修复：强制应用连线样式 ==========
+      try {
+        // 方法1：直接设置attrs（最可靠的方式）
+        link.set('attrs', {
+          '.line': {
+            stroke: '#00d9ff',
+            strokeWidth: 2.5,
+            strokeLinejoin: 'round',
+            fill: 'none',
+          },
+          '.marker-target': {
+            fill: '#00d9ff',
+            stroke: '#00d9ff',
+            d: 'M 10 -5 L 0 0 L 10 5 z',
+            strokeWidth: 1,
+          },
+        });
 
-      // 检查link的DOM是否存在
-      if (linkView.el) {
-        console.log('[Link] DOM element exists:', linkView.el.outerHTML.substring(0, 300));
-        const wrap = linkView.el.querySelector('.connection-wrap');
-        const conn = linkView.el.querySelector('.connection');
-        const marker = linkView.el.querySelector('.marker-target');
-        console.log('[Link] .connection-wrap exists:', !!wrap);
-        console.log('[Link] .connection exists:', !!conn);
-        console.log('[Link] .marker-target exists:', !!marker);
-        if (conn) {
-          console.log('[Link] .connection d attribute:', (conn as SVGPathElement).getAttribute('d'));
-          console.log('[Link] .connection stroke:', (conn as SVGPathElement).getAttribute('stroke'));
-          console.log('[Link] .connection stroke-width:', (conn as SVGPathElement).getAttribute('stroke-width'));
-        } else {
-          console.error('[Link] ❌ NO .connection PATH ELEMENT!');
+        // 方法2：触发视图更新
+        const view = paper.findViewByModel(link) as any;
+        if (view && typeof view.update === 'function') {
+          view.update();
         }
-      } else {
-        console.error('[Link] ❌ NO DOM ELEMENT! linkView.el is null/undefined!');
+
+        console.log('[Link] Style applied successfully');
+      } catch (err) {
+        console.error('[Link] Style apply error:', err);
       }
 
-      // ========== 安全网：强制确保连线渲染 ==========
-      // 延迟一帧后检查并修复不可见的连线
+      // 检查DOM
       requestAnimationFrame(() => {
-        try {
-          // 确保link在graph中
-          if (!graph.getCell(link.id)) {
-            console.warn('[Link] Safety: Link not in graph, adding...');
-            graph.addCell(link);
+        const view = paper.findViewByModel(link) as any;
+        if (view?.el) {
+          const lineEl = view.el.querySelector('[joint-selector="line"]');
+          const wrapperEl = view.el.querySelector('[joint-selector="wrapper"]');
+          console.log('[Link] [joint-selector=line] exists:', !!lineEl);
+          console.log('[Link] [joint-selector=wrapper] exists:', !!wrapperEl);
+          if (lineEl) {
+            console.log('[Link] .line d:', (lineEl as SVGPathElement).getAttribute('d'));
+            console.log('[Link] .line stroke:', (lineEl as SVGPathElement).getAttribute('stroke'));
           }
-
-          // 强制触发重新计算路由
-          const source = link.get('source');
-          const target = link.get('target');
-          console.log('[Link] Safety - Re-triggering route calc, source:', source, 'target:', target);
-
-          // 触发属性更新以强制重绘
-          link.set('source', { ...source });
-          link.set('target', { ...target });
-
-          // 再次检查DOM
-          setTimeout(() => {
-            const updatedView = paper.findViewByModel(link) as any;
-            if (updatedView?.el) {
-              const conn = updatedView.el.querySelector('.connection');
-              if (conn) {
-                const d = (conn as SVGPathElement).getAttribute('d');
-                console.log('[Link] Safety - After fix, path d:', d);
-                if (!d || d === '' || d === 'M 0 0') {
-                  console.error('[Link] Safety - Path still empty! Trying orthogonal fallback...');
-                  link.set('router', { name: 'orthogonal' });
-                }
-              } else {
-                console.error('[Link] Safety - Still no .connection element!');
-              }
-            }
-          }, 100);
-        } catch (err) {
-          console.error('[Link] Safety net error:', err);
+          // 输出所有子元素
+          const allChildren = view.el.querySelectorAll('*');
+          console.log('[Link] All children:', allChildren.length);
+          allChildren.forEach((child: Element, i: number) => {
+            const sel = child.getAttribute('joint-selector') || child.className || '';
+            const d = child.tagName === 'path' ? ` d=${(child as SVGPathElement).getAttribute('d')}` : '';
+            console.log(`  [${i}] <${child.tagName}> selector="${sel}"${d}`);
+          });
         }
       });
-
-      isLinkingRef.current = false;
 
       useEditorStore.getState().pushHistory('connect', {
         targetId: newCellView?.model?.id,
@@ -301,11 +278,19 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       console.log('[Link] Disconnected');
     });
 
-    // ---------- 连线添加到Graph时（更早的钩子）----------
+    // ---------- 连线添加到Graph时（安全网：强制应用样式）----------
     paper.on('link:add', (link: any) => {
       console.log('[Link] ADD event - link added to graph:', link.id);
       console.log('[Link] Source:', JSON.stringify(link.get('source')));
       console.log('[Link] Target:', JSON.stringify(link.get('target')));
+
+      // 安全网：确保连线样式被正确应用
+      try {
+        (link as any).set('attrs', circuitLinkAttrs);
+        console.log('[Link] Style applied in add event');
+      } catch (e) {
+        console.warn('[Link] Style apply failed in add:', e);
+      }
     });
 
     // ---------- 开始拖拽新连线 ----------
