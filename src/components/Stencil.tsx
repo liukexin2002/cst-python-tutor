@@ -36,15 +36,38 @@ const Stencil: React.FC<StencilProps> = ({ paperRef }) => {
   // 处理拖拽开始
   const handleDragStart = useCallback(
     (e: React.DragEvent, type: string, attrs?: any) => {
-      e.dataTransfer.setData('componentType', type);
-      e.dataTransfer.setData('componentAttrs', JSON.stringify(attrs || {}));
-      e.dataTransfer.effectAllowed = 'copy';
+      console.log('[Stencil] Drag started:', type);
 
-      // 创建视觉反馈
-      const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-      ghost.style.opacity = '0.8';
-      ghost.style.transform = 'scale(1.05)';
-      e.dataTransfer.setDragImage(ghost, 45, 30);
+      // 设置拖拽数据 - 使用多种格式确保兼容性
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('componentType', type);
+        e.dataTransfer.setData('componentAttrs', JSON.stringify(attrs || {}));
+        e.dataTransfer.setData('text/plain', type); // 兜底格式
+        e.dataTransfer.effectAllowed = 'copy';
+      }
+
+      // 创建视觉反馈（拖拽时的半透明副本）
+      const target = e.currentTarget as HTMLElement;
+      const ghost = target.cloneNode(true) as HTMLElement;
+      ghost.style.opacity = '0.85';
+      ghost.style.transform = 'scale(1.08)';
+      ghost.style.width = `${target.offsetWidth}px`;
+      ghost.style.position = 'absolute';
+      ghost.style.top = '-1000px'; // 移出视口
+      document.body.appendChild(ghost);
+
+      try {
+        if (e.dataTransfer && typeof e.dataTransfer.setDragImage === 'function') {
+          e.dataTransfer.setDragImage(ghost, 45, 30);
+        }
+      } finally {
+        // 清理临时DOM
+        setTimeout(() => {
+          if (document.body.contains(ghost)) {
+            document.body.removeChild(ghost);
+          }
+        }, 100);
+      }
 
       dragItemRef.current = { type, attrs };
     },

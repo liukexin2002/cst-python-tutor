@@ -193,60 +193,131 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
       document.addEventListener('mouseup', onMouseUp);
     });
 
-    // 处理拖放事件（从Stencil拖入器件）
-    containerRef.current.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer!.dropEffect = 'copy';
+    // ========== 外部拖放处理（从Stencil拖入器件）==========
+    // 注意：必须在捕获阶段监听，因为JointJS Paper会拦截冒泡阶段的drop事件
+
+    // dragover - 必须阻止默认行为才能触发drop
+    containerRef.current.addEventListener(
+      'dragover',
+      (e: DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      },
+      false
+    );
+
+    // dragleave - 可选：添加视觉反馈
+    containerRef.current.addEventListener('dragleave', (e: DragEvent) => {
+      // 只有当离开容器边界时才处理
+      const relatedTarget = e.relatedTarget as Node | null;
+      if (relatedTarget && !containerRef.current?.contains(relatedTarget)) {
+        containerRef.current!.style.outline = '';
+      }
     });
 
-    containerRef.current.addEventListener('drop', (e) => {
+    // dragenter - 添加视觉反馈
+    containerRef.current.addEventListener('dragenter', (e: DragEvent) => {
       e.preventDefault();
-
-      const componentType = e.dataTransfer!.getData('componentType');
-      if (!componentType || !shapeConstructors[componentType]) return;
-
-      const attrsStr = e.dataTransfer!.getData('componentAttrs');
-      let attrs: Record<string, any> = {};
-      try {
-        attrs = JSON.parse(attrsStr);
-      } catch {}
-
-      // 计算放置位置（相对于画布坐标）
-      const rect = containerRef.current!.getBoundingClientRect();
-      const point = paper.clientToLocalPoint({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-
-      // 网格吸附
-      const snapped = snapToGrid(point.x, point.y, config.gridSize!);
-
-      // 创建新元件
-      const ShapeConstructor = shapeConstructors[componentType];
-      const newElement = new ShapeConstructor({
-        position: { x: snapped.x, y: snapped.y },
-        attrs: attrs,
-      });
-
-      // 添加到图
-      graph.addCell(newElement);
-
-      // 记录历史
-      useEditorStore.getState().pushHistory('add', {
-        id: newElement.id,
-        type: componentType,
-        position: snapped,
-      });
-
-      // 选中新元素
-      useEditorStore.getState().selectCell(newElement.id, 'element');
-
-      // 高亮新添加的元素
-      setTimeout(() => {
-        const view = paper.findViewByModel(newElement);
-        if (view) (view as any).highlight();
-      }, 50);
+      e.stopPropagation();
+      containerRef.current!.style.outline = '2px dashed #00d9ff';
+      containerRef.current!.style.outlineOffset = '-4px';
     });
+
+    // drop - 核心放置逻辑
+    containerRef.current.addEventListener(
+      'drop',
+      (e: DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 移除视觉反馈
+        containerRef.current!.style.outline = '';
+
+        console.log('[Canvas] Drop event triggered!');
+
+        // 获取拖拽数据 - 尝试多种格式
+        let componentType = e.dataTransfer?.getData('componentType');
+        if (!componentType) {
+          // 兜底：尝试 text/plain 格式
+          componentType = e.dataTransfer?.getData('text/plain') || '';
+        }
+        console.log('[Canvas] Component type:', componentType);
+
+        if (!componentType) {
+          console.warn('[Canvas] No componentType in dataTransfer');
+          return;
+        }
+
+        if (!shapeConstructors[componentType]) {
+          console.warn('[Canvas] Unknown component type:', componentType);
+          return;
+        }
+
+        // 解析属性
+        let attrs: Record<string, any> = {};
+        const attrsStr = e.dataTransfer?.getData('componentAttrs');
+        if (attrsStr) {
+          try {
+            attrs = JSON.parse(attrsStr);
+          } catch (err) {
+            console.warn('[Canvas] Failed to parse attrs:', err);
+          }
+        }
+
+        // 计算放置位置（转换为画布本地坐标）
+        const rect = containerRef.current!.getBoundingClientRect();
+        const clientX = e.clientX || (e as any).pageX || 0;
+        const clientY = e.clientY || (e as any).pageY || 0;
+
+        const point = paper.clientToLocalPoint({
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        });
+
+        console.log('[Canvas] Drop position:', { clientX, clientY, localPoint: point });
+
+        // 网格吸附
+        const snapped = snapToGrid(point.x, point.y, config.gridSize!);
+        console.log('[Canvas] Snapped position:', snapped);
+
+        // 创建新元件实例
+        const ShapeConstructor = shapeConstructors[componentType];
+        const newElement = new ShapeConstructor({
+          position: { x: snapped.x, y: snapped.y },
+          attrs: attrs,
+        }) as any;
+
+        console.log('[Canvas] Created element:', newElement.id, newElement.get('type'));
+
+        // 添加到图形模型
+        graph.addCell(newElement);
+
+        console.log('[Canvas] Element added to graph, total cells:', graph.getCells().length);
+
+        // 记录历史
+        useEditorStore.getState().pushHistory('add', {
+          id: newElement.id,
+          type: componentType,
+          position: snapped,
+        });
+
+        // 选中新元素
+        useEditorStore.getState().selectCell(newElement.id, 'element');
+
+        // 高亮新添加的元素（延迟一帧确保DOM已渲染）
+        requestAnimationFrame(() => {
+          const view = paper.findViewByModel(newElement);
+          if (view) {
+            (view as any).highlight();
+            console.log('[Canvas] Element highlighted');
+          }
+        });
+      },
+      false
+    );
 
     // 鼠标滚轮缩放
     containerRef.current.addEventListener('wheel', (e) => {
