@@ -267,17 +267,43 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
           }
         }
 
-        // 计算放置位置（转换为画布本地坐标）
+        // 计算放置位置 - 使用 SVG CTM 逆矩阵获取准确的模型坐标
         const rect = containerRef.current!.getBoundingClientRect();
         const clientX = e.clientX || (e as any).pageX || 0;
         const clientY = e.clientY || (e as any).pageY || 0;
 
-        const point = paper.clientToLocalPoint({
-          x: clientX - rect.left,
-          y: clientY - rect.top,
-        });
+        let point: { x: number; y: number };
 
-        console.log('[Canvas] Drop position:', { clientX, clientY, localPoint: point });
+        // 使用 SVG getScreenCTM().inverse() 进行精确坐标转换
+        // 这能正确处理缩放、平移、旋转等所有变换
+        try {
+          const svgEl = paper.svg as SVGSVGElement;
+          if (svgEl && typeof svgEl.getScreenCTM === 'function') {
+            const ctm = svgEl.getScreenCTM();
+            if (ctm) {
+              // 创建 SVG 点并应用逆矩阵
+              const svgPt = (svgEl.ownerSVGElement || svgEl).createSVGPoint();
+              svgPt.x = clientX;
+              svgPt.y = clientY;
+              const localPt = svgPt.matrixTransform(ctm.inverse());
+              point = { x: localPt.x, y: localPt.y };
+            } else {
+              // 无 CTM 时使用简单计算（未缩放状态）
+              point = { x: clientX - rect.left, y: clientY - rect.top };
+            }
+          } else {
+            // 兜底：使用 JointJS 内置方法
+            point = paper.clientToLocalPoint({
+              x: clientX - rect.left,
+              y: clientY - rect.top,
+            });
+          }
+        } catch (err) {
+          console.warn('[Canvas] Coordinate conversion failed, using fallback:', err);
+          point = { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        console.log('[Canvas] Drop position:', { clientX, clientY, modelPoint: point });
 
         // 网格吸附
         const snapped = snapToGrid(point.x, point.y, config.gridSize!);
