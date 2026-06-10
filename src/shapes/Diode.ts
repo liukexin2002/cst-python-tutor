@@ -2,48 +2,43 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
-const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
-
 export const Diode = (joint.shapes.standard.Rectangle as any).extend({
-  defaults: joint.util.deepSupplement(
-    {
-      type: 'circuit.Diode',
-      size: { width: 80, height: 60 },
-      attrs: {
-        body: {
-          fill: '#1a1a3e',
-          stroke: '#ff6b6b',
-          strokeWidth: 2.5,
-          rx: 4,
-          ry: 4,
-        },
-        label: {
-          text: 'D1',
-          fill: '#ff6b6b',
-          fontSize: 13,
-          fontWeight: 'bold',
-          fontFamily: "'JetBrains Mono', monospace",
-        },
-        // 二极管符号 (三角+竖线)
-        symbol: {
-          d: 'M15,30 L42,14 L42,46 Z M44,12 L44,48',
-          stroke: '#ff6b6b',
-          strokeWidth: 2.5,
-          fill: 'none',
-          strokeLinecap: 'round',
-          strokeLinejoin: 'round',
-        },
+  defaults: {
+    type: 'circuit.Diode',
+    size: { width: 80, height: 60 },
+    attrs: {
+      body: {
+        fill: '#1a1a3e',
+        stroke: '#ff6b6b',
+        strokeWidth: 2.5,
+        rx: 4,
+        ry: 4,
       },
-      ports: {
-        groups: basePortGroups,
-        items: [
-          { id: 'anode', group: 'in', attrs: { portLabel: { text: 'A' } } },
-          { id: 'cathode', group: 'out', attrs: { portLabel: { text: 'K' } } },
-        ],
+      label: {
+        text: 'D1',
+        fill: '#ff6b6b',
+        fontSize: 13,
+        fontWeight: 'bold',
+        fontFamily: "'JetBrains Mono', monospace",
+      },
+      // 二极管符号 (三角+竖线)
+      symbol: {
+        d: 'M15,30 L42,14 L42,46 Z M44,12 L44,48',
+        stroke: '#ff6b6b',
+        strokeWidth: 2.5,
+        fill: 'none',
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
       },
     },
-    _rectDefaults
-  ),
+    ports: {
+      groups: basePortGroups,
+      items: [
+        { id: 'anode', group: 'in', attrs: { portLabel: { text: 'A' } } },
+        { id: 'cathode', group: 'out', attrs: { portLabel: { text: 'K' } } },
+      ],
+    },
+  },
 
   markup: [
     { tagName: 'rect', selector: 'body' },

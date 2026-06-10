@@ -285,17 +285,29 @@ const Canvas = forwardRef<CanvasHandle>((_props, ref) => {
 
         // 创建新元件实例
         const ShapeConstructor = shapeConstructors[componentType];
-        const newElement = new ShapeConstructor({
-          position: { x: snapped.x, y: snapped.y },
-          attrs: attrs,
-        }) as any;
+        console.log('[Canvas] ShapeConstructor:', ShapeConstructor.name || componentType);
+
+        let newElement: any;
+        try {
+          newElement = new ShapeConstructor({
+            position: { x: snapped.x, y: snapped.y },
+            attrs: attrs,
+          });
+        } catch (err) {
+          console.error('[Canvas] Failed to create element:', err);
+          return;
+        }
 
         console.log('[Canvas] Created element:', newElement.id, newElement.get('type'));
+        console.log('[Canvas] Element position:', newElement.position());
+        console.log('[Canvas] Element size:', newElement.size());
+        console.log('[Canvas] Element markup:', JSON.stringify(newElement.markup));
 
         // 添加到图形模型
         graph.addCell(newElement);
 
-        console.log('[Canvas] Element added to graph, total cells:', graph.getCells().length);
+        const cellCount = graph.getCells().length;
+        console.log('[Canvas] Element added to graph, total cells:', cellCount);
 
         // 记录历史
         useEditorStore.getState().pushHistory('add', {

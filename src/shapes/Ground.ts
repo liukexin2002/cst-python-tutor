@@ -2,45 +2,38 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
-const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
-
 export const Ground = (joint.shapes.standard.Rectangle as any).extend({
-  defaults: joint.util.deepSupplement(
-    {
-      type: 'circuit.Ground',
-      size: { width: 60, height: 50 },
-      attrs: {
-        body: {
-          fill: 'transparent',
-          stroke: 'none',
-          strokeWidth: 0,
-          rx: 0,
-          ry: 0,
-        },
-        label: {
-          text: 'GND',
-          fill: '#888888',
-          fontSize: 11,
-          fontWeight: 'normal',
-          fontFamily: "'JetBrains Mono', monospace",
-          refY: '95%',
-        },
-        // 接地符号 (三根递减横线)
-        symbol: {
-          d: 'M30,5 L30,18 M18,18 L42,18 M22,26 L38,26 M26,34 L34,34',
-          stroke: '#888888',
-          strokeWidth: 2.5,
-          fill: 'none',
-          strokeLinecap: 'round',
-        },
+  defaults: {
+    type: 'circuit.Ground',
+    size: { width: 60, height: 50 },
+    attrs: {
+      body: {
+        fill: 'transparent',
+        stroke: 'none',
+        strokeWidth: 0,
       },
-      ports: {
-        groups: basePortGroups,
-        items: [{ id: 'input', group: 'top', attrs: { portLabel: { text: '' } } }],
+      label: {
+        text: 'GND',
+        fill: '#888888',
+        fontSize: 11,
+        fontWeight: 'normal',
+        fontFamily: "'JetBrains Mono', monospace",
+        refY: '95%',
+      },
+      // 接地符号 (三根递减横线)
+      symbol: {
+        d: 'M30,5 L30,18 M18,18 L42,18 M22,26 L38,26 M26,34 L34,34',
+        stroke: '#888888',
+        strokeWidth: 2.5,
+        fill: 'none',
+        strokeLinecap: 'round',
       },
     },
-    _rectDefaults
-  ),
+    ports: {
+      groups: basePortGroups,
+      items: [{ id: 'input', group: 'top', attrs: { portLabel: { text: '' } } }],
+    },
+  },
 
   markup: [
     { tagName: 'rect', selector: 'body' },
