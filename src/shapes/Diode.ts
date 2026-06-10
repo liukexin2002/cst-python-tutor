@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
+const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
+
 export const Diode = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Diode',
       size: { width: 80, height: 60 },
       attrs: {
@@ -40,31 +41,20 @@ export const Diode = (joint.shapes.standard.Rectangle as any).extend({
           { id: 'cathode', group: 'out', attrs: { portLabel: { text: 'K' } } },
         ],
       },
-    };
-  },
+    },
+    _rectDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'rect',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
   ],
 });
 
-// 工厂函数：创建新的二极管实例
 export function createDiode(x = 300, y = 100) {
   return new Diode({
     position: { x, y },
-    attrs: {
-      label: { text: `D${Math.floor(Math.random() * 100)}` },
-    },
+    attrs: { label: { text: `D${Math.floor(Math.random() * 100)}` } },
   });
 }

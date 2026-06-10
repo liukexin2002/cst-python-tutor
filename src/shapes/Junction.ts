@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
-export const Junction = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+const _circleDefaults = (joint.shapes.standard.Circle as any).prototype.defaults;
+
+export const Junction = (joint.shapes.standard.Circle as any).extend({
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Junction',
       size: { width: 24, height: 24 },
       attrs: {
@@ -13,8 +14,7 @@ export const Junction = (joint.shapes.standard.Rectangle as any).extend({
           fill: '#1a1a3e',
           stroke: '#00d9ff',
           strokeWidth: 2,
-          rx: 12,
-          ry: 12,
+          r: 12,
         },
         label: {
           text: '',
@@ -38,24 +38,16 @@ export const Junction = (joint.shapes.standard.Rectangle as any).extend({
           { id: 'bottom', group: 'bottom', attrs: { portLabel: { text: '' } } },
         ],
       },
-    };
-  },
+    },
+    _circleDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'circle',
-      selector: 'body',
-    },
-    {
-      tagName: 'circle',
-      selector: 'dot',
-    },
+    { tagName: 'circle', selector: 'body' },
+    { tagName: 'circle', selector: 'dot' },
   ],
 });
 
-// 工厂函数：创建新的连接点实例
 export function createJunction(x = 400, y = 200) {
-  return new Junction({
-    position: { x, y },
-  });
+  return new Junction({ position: { x, y } });
 }

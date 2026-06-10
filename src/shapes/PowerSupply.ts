@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
-export const PowerSupply = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+const _ellipseDefaults = (joint.shapes.standard.Ellipse as any).prototype.defaults;
+
+export const PowerSupply = (joint.shapes.standard.Ellipse as any).extend({
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.PowerSupply',
       size: { width: 70, height: 70 },
       attrs: {
@@ -36,31 +37,20 @@ export const PowerSupply = (joint.shapes.standard.Rectangle as any).extend({
         groups: basePortGroups,
         items: [{ id: 'output', group: 'bottom', attrs: { portLabel: { text: '+' } } }],
       },
-    };
-  },
+    },
+    _ellipseDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'circle',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'ellipse', selector: 'body' },  // 圆形使用 ellipse
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
   ],
 });
 
-// 工厂函数：创建新的电源实例
 export function createPowerSupply(x = 500, y = 150) {
   return new PowerSupply({
     position: { x, y },
-    attrs: {
-      label: { text: `VCC` },
-    },
+    attrs: { label: { text: 'VCC' } },
   });
 }

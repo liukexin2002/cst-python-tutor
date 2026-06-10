@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
+const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
+
 export const Ground = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Ground',
       size: { width: 60, height: 50 },
       attrs: {
@@ -37,31 +38,20 @@ export const Ground = (joint.shapes.standard.Rectangle as any).extend({
         groups: basePortGroups,
         items: [{ id: 'input', group: 'top', attrs: { portLabel: { text: '' } } }],
       },
-    };
-  },
+    },
+    _rectDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'rect',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
   ],
 });
 
-// 工厂函数：创建新的接地实例
 export function createGround(x = 500, y = 350) {
   return new Ground({
     position: { x, y },
-    attrs: {
-      label: { text: `GND` },
-    },
+    attrs: { label: { text: 'GND' } },
   });
 }

@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
+const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
+
 export const Transistor = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Transistor',
       size: { width: 90, height: 80 },
       attrs: {
@@ -41,31 +42,20 @@ export const Transistor = (joint.shapes.standard.Rectangle as any).extend({
           { id: 'emitter', group: 'bottom', attrs: { portLabel: { text: 'E' } } },
         ],
       },
-    };
-  },
+    },
+    _rectDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'rect',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
   ],
 });
 
-// 工厂函数：创建新的三极管实例
 export function createTransistor(x = 300, y = 250) {
   return new Transistor({
     position: { x, y },
-    attrs: {
-      label: { text: `Q${Math.floor(Math.random() * 100)}` },
-    },
+    attrs: { label: { text: `Q${Math.floor(Math.random() * 100)}` } },
   });
 }

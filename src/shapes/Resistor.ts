@@ -2,10 +2,12 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
+// 获取父类默认值
+const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
+
 export const Resistor = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Resistor',
       size: { width: 90, height: 50 },
       attrs: {
@@ -40,8 +42,9 @@ export const Resistor = (joint.shapes.standard.Rectangle as any).extend({
           { id: 'out', group: 'out', attrs: { portLabel: { text: '' } } },
         ],
       },
-    };
-  },
+    },
+    _rectDefaults
+  ),
 
   markup: [
     {

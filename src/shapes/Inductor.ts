@@ -2,10 +2,11 @@
 import { basePortGroups } from './BaseComponent';
 import * as joint from 'jointjs';
 
+const _rectDefaults = (joint.shapes.standard.Rectangle as any).prototype.defaults;
+
 export const Inductor = (joint.shapes.standard.Rectangle as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Rectangle.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Inductor',
       size: { width: 100, height: 50 },
       attrs: {
@@ -39,31 +40,20 @@ export const Inductor = (joint.shapes.standard.Rectangle as any).extend({
           { id: 'out', group: 'out', attrs: { portLabel: { text: '' } } },
         ],
       },
-    };
-  },
+    },
+    _rectDefaults
+  ),
 
   markup: [
-    {
-      tagName: 'rect',
-      selector: 'body',
-    },
-    {
-      tagName: 'path',
-      selector: 'symbol',
-    },
-    {
-      tagName: 'text',
-      selector: 'label',
-    },
+    { tagName: 'rect', selector: 'body' },
+    { tagName: 'path', selector: 'symbol' },
+    { tagName: 'text', selector: 'label' },
   ],
 });
 
-// 工厂函数：创建新的电感实例
 export function createInductor(x = 100, y = 300) {
   return new Inductor({
     position: { x, y },
-    attrs: {
-      label: { text: `L${Math.floor(Math.random() * 100)}` },
-    },
+    attrs: { label: { text: `L${Math.floor(Math.random() * 100)}` } },
   });
 }

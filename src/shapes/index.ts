@@ -50,10 +50,11 @@ export function registerCircuitShapes() {
 }
 
 // 自定义连线样式 - 电路专用Link（使用extend API）
+const _linkDefaults = (joint.shapes.standard.Link as any).prototype.defaults;
+
 export const CircuitLink = (joint.shapes.standard.Link as any).extend({
-  defaults(): Record<string, any> {
-    return {
-      ...(joint.shapes.standard.Link.prototype as any).defaults(),
+  defaults: joint.util.deepSupplement(
+    {
       type: 'circuit.Link',
       attrs: {
         line: {
@@ -70,8 +71,9 @@ export const CircuitLink = (joint.shapes.standard.Link as any).extend({
       },
       router: { name: 'manhattan' },
       connector: { name: 'rounded' },
-    };
-  },
+    },
+    _linkDefaults
+  ),
 });
 
 export default CircuitShapes;
