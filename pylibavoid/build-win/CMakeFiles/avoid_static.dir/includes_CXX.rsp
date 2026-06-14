@@ -1,0 +1,1 @@
+-I/workspace/pylibavoid/../adaptagrams/cola/libavoid -I/workspace/pylibavoid/../adaptagrams/cola -I/workspace/pylibavoid/../adaptagrams/cola/libcola -I/workspace/pylibavoid/../adaptagrams/cola/libdialect -I"/workspace/win-cross/Python-3.12.10/PC" -I"/workspace/win-cross/Python-3.12.10/Include" -I"/root/.pyenv/versions/3.14.4/lib/python3.14/site-packages/pybind11/include"

@@ -1,0 +1,4 @@
+/workspace/pylibavoid/build-win/CMakeFiles/avoid_static.dir
+/workspace/pylibavoid/build-win/CMakeFiles/pylibavoid.dir
+/workspace/pylibavoid/build-win/CMakeFiles/edit_cache.dir
+/workspace/pylibavoid/build-win/CMakeFiles/rebuild_cache.dir
