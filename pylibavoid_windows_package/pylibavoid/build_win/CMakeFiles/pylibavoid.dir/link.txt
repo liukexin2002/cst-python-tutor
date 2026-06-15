@@ -1,0 +1,3 @@
+/usr/bin/cmake -E rm -f CMakeFiles/pylibavoid.dir/objects.a
+x86_64-w64-mingw32-ar qc CMakeFiles/pylibavoid.dir/objects.a @CMakeFiles/pylibavoid.dir/objects1.rsp
+/usr/bin/x86_64-w64-mingw32-g++ -O3 -DNDEBUG -static-libgcc -static-libstdc++ -Wl,--enable-stdcall-fixup -shared -o pylibavoid.pyd -Wl,--out-implib,libpylibavoid.dll.a -Wl,--major-image-version,0,--minor-image-version,0 -Wl,--whole-archive CMakeFiles/pylibavoid.dir/objects.a -Wl,--no-whole-archive @CMakeFiles/pylibavoid.dir/linkLibs.rsp

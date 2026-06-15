@@ -1,0 +1,1 @@
+-I/workspace/python_win313/include -I"/root/.pyenv/versions/3.12.13/lib/python3.12/site-packages/pybind11/include" -I/workspace/pylibavoid_windows_package/pylibavoid/adaptagrams/cola
